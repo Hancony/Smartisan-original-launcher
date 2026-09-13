@@ -13157,6 +13157,7 @@ public final class MaintainedLauncherSettingsHost {
             bindBadgeVisibilitySwitch(activity, resources, root);
             bindBadgeSwipeCleanSwitch(activity, resources, root);
             bindSwitch(activity, resources, root, "item_id_unlock_anim", "launcher_unlock_animation_enabled", false);
+            bindUnlockCompatibilitySwitch(activity, resources, root);
             migrateSearchGestureSetting(activity);
             synchronizeBadgeSettingsWithNotificationAccess(activity,
                     com.smartisanos.launcher.badge.BadgeBridge.hasNotificationAccess(activity));
@@ -13165,6 +13166,26 @@ public final class MaintainedLauncherSettingsHost {
         } catch (Throwable t) {
             showInfoDialog(activity, "OCD Settings", "Unable to open OCD settings");
         }
+    }
+
+    private static void bindUnlockCompatibilitySwitch(final Activity activity,
+            Resources resources, View root) {
+        View view = find(resources, root, "item_id_unlock_wait_for_focus");
+        if (!(view instanceof SettingItemSwitch)) return;
+        final SettingItemSwitch item = (SettingItemSwitch) view;
+        final SharedPreferences preferences = activity.getSharedPreferences(
+                "launcher_settings", Context.MODE_PRIVATE);
+        item.setChecked(preferences.getBoolean(LauncherBelowKeyguardCompat.KEY_WAIT_FOR_FOCUS, false));
+        bindSwitchControlOnly(item, new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                boolean enabled = !item.isChecked();
+                item.setCheckedAnimated(enabled);
+                // Sampled at the next lock session; do not reload original settings
+                // or interrupt an animation that is already in progress.
+                preferences.edit().putBoolean(LauncherBelowKeyguardCompat.KEY_WAIT_FOR_FOCUS,
+                        enabled).apply();
+            }
+        });
     }
 
     private static void showQuickDesktopSettingsPage(final Activity activity) {

@@ -541,6 +541,8 @@
     <string name="downloading_update_toast">版本更新下载中，请在通知栏安装</string>
     <string name="icon_setting_footer_text">你可以选择一个普适性图标来替换未被重绘的应用程序的图标，在该应用的图标被重绘后，图标将被替换</string>
     <string name="unlock_animation_title">解锁动画</string>
+    <string name="unlock_wait_for_focus_title">解锁动画兼容模式</string>
+    <string name="unlock_wait_for_focus_tips">动画显得太快或只看到后半段时可开启：解锁后等待桌面获得焦点再播放。关闭则保留提前播放，减少衔接停顿。下次锁屏解锁生效，需先开启“解锁动画”。</string>
     <string name="unlock_animation_tips">允许桌面解锁后播放缩放动画</string>
     <string name="transparent_theme_title">透明主题</string>
     <string name="dynamic_weather_title">动态天气</string>

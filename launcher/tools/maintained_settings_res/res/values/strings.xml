@@ -684,6 +684,8 @@
     <string name="check_update_title">检查更新</string>
     <string name="update_available_title">更新提示</string>
     <string name="unlock_animation_title">Unlock Animation</string>
+    <string name="unlock_wait_for_focus_title">Unlock animation compatibility</string>
+    <string name="unlock_wait_for_focus_tips">Enable if the animation appears too short or partly finished: wait until the desktop gains focus after unlocking. Off keeps early playback for a smoother handoff. Takes effect on the next lock and unlock; requires Unlock Animation.</string>
     <string name="unlock_animation_tips">Play scale animation after unlock</string>
     <string name="transparent_theme_title">Transparent Theme</string>
     <string name="dynamic_weather_title">Dynamic weather</string>

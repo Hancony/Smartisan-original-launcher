@@ -26,6 +26,7 @@ import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.util.LruCache;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -402,8 +403,18 @@ public final class OriginalQuickSearchActivity extends Activity
                 String submitted = view.getText() == null ? ""
                         : view.getText().toString().trim();
                 if (submitted.length() == 0 || historyRepository == null) return false;
-                historyRepository.recordQuery(submitted);
-                Log.i(QUERY_TAG, "QS_ORIGINAL_HISTORY_QUERY_SUBMITTED content=" + submitted);
+                SearchEntry exactApplication = findApplicationEntryByLabel(submitted);
+                String recordedType;
+                if (exactApplication != null) {
+                    historyRepository.recordApplication(
+                            exactApplication.label, exactApplication.packageName);
+                    recordedType = "APPLICATION";
+                } else {
+                    historyRepository.recordQuery(submitted);
+                    recordedType = "QUERY";
+                }
+                Log.i(QUERY_TAG, "QS_ORIGINAL_HISTORY_QUERY_SUBMITTED content=" + submitted
+                        + " recordedType=" + recordedType);
                 Object service = getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (service instanceof InputMethodManager) {
                     ((InputMethodManager) service).hideSoftInputFromWindow(
@@ -713,6 +724,7 @@ public final class OriginalQuickSearchActivity extends Activity
                         if (destroyed || completedGeneration != SearchIconBackend.getSourceGeneration()
                                 || completedGeneration != hydratedIconSourceGeneration) return;
                         bindTopApps(snapshot.entries);
+                        if (historySnapshot != null) bindHistory(historySnapshot);
                         adapterGeneration++;
                         adapter.notifyDataSetChanged();
                         Log.i(QUERY_TAG, "QS_ICON_REHYDRATE_APPLIED sourceGeneration="
@@ -819,16 +831,38 @@ public final class OriginalQuickSearchActivity extends Activity
             TextView tag = (TextView) uiInflater.inflate(
                     resource("layout", "qs_original_history_tag"), historyLayout, false);
             tag.setText(history.content);
-            if (history.type == SearchHistoryRepository.TYPE_APPLICATION) {
-                SearchEntry entry = findApplicationEntry(history.packageName);
-                Bitmap cached = entry == null ? null : SearchIconBackend.getDecoded(entry);
+            tag.setIncludeFontPadding(false);
+            tag.setGravity(Gravity.CENTER);
+            int horizontalPaddingReduction = dimen(
+                    "qs_original_history_horizontal_padding_reduction");
+            tag.setPadding(
+                    Math.max(0, tag.getPaddingLeft() - horizontalPaddingReduction),
+                    tag.getPaddingTop(),
+                    Math.max(0, tag.getPaddingRight() - horizontalPaddingReduction),
+                    tag.getPaddingBottom());
+            final SearchEntry historyApplication = findHistoryApplication(history);
+            if (historyApplication != null) {
+                Bitmap cached = SearchIconBackend.getDecoded(historyApplication);
                 if (cached != null) {
-                    Drawable icon = new BitmapDrawable(uiResources, cached);
-                    int size = dimen("qs_original_history_icon_size");
-                    icon.setBounds(0, 0, size, size);
-                    tag.setCompoundDrawables(icon, null, null, null);
-                    tag.setCompoundDrawablePadding(
-                            dimen("qs_original_history_icon_padding"));
+                    setHistoryIcon(tag, cached);
+                } else {
+                    final TextView target = tag;
+                    final String expectedEntryKey = historyApplication.entryKey;
+                    final long expectedSourceGeneration = SearchIconBackend.getSourceGeneration();
+                    target.setTag(expectedEntryKey);
+                    SearchIconBackend.IconRequest request = SearchIconBackend.requestDecoded(
+                            this, historyApplication, new SearchIconBackend.IconCallback() {
+                                @Override public void onIconReady(String iconKey, long generation,
+                                        Bitmap ready) {
+                                    if (!destroyed && ready != null
+                                            && generation == expectedSourceGeneration
+                                            && target.getParent() == historyLayout
+                                            && expectedEntryKey.equals(target.getTag())) {
+                                        setHistoryIcon(target, ready);
+                                    }
+                                }
+                            });
+                    if (request != null) iconRequests.add(request);
                 }
             }
             tag.setOnClickListener(new View.OnClickListener() {
@@ -843,6 +877,15 @@ public final class OriginalQuickSearchActivity extends Activity
                 + " loaded=" + snapshot.persistentLoadComplete);
     }
 
+    private void setHistoryIcon(TextView tag, Bitmap bitmap) {
+        Drawable icon = new BitmapDrawable(uiResources, bitmap);
+        int size = dimen("qs_original_history_icon_size");
+        int visualOffsetY = dimen("qs_original_history_icon_visual_offset_y");
+        icon.setBounds(0, visualOffsetY, size, size + visualOffsetY);
+        tag.setCompoundDrawables(icon, null, null, null);
+        tag.setCompoundDrawablePadding(dimen("qs_original_history_icon_padding"));
+    }
+
     private SearchEntry findApplicationEntry(String packageName) {
         if (packageName == null || packageName.length() == 0) return null;
         for (RowModel row : allRows) {
@@ -854,18 +897,36 @@ public final class OriginalQuickSearchActivity extends Activity
         return null;
     }
 
-    private void onHistoryClicked(SearchHistoryRepository.HistoryEntry history) {
-        if (history.type == SearchHistoryRepository.TYPE_APPLICATION) {
-            SearchEntry entry = findApplicationEntry(history.packageName);
-            if (entry != null) {
-                launchEntry(entry, "HISTORY");
-                return;
+    private SearchEntry findApplicationEntryByLabel(String label) {
+        if (label == null || label.length() == 0) return null;
+        for (RowModel row : allRows) {
+            SearchEntry entry = row.entry;
+            if (entry != null && entry.label != null
+                    && label.equalsIgnoreCase(entry.label.trim())
+                    && (entry.shortcutId == null || entry.shortcutId.length() == 0)) {
+                return entry;
             }
+        }
+        return null;
+    }
+
+    private void onHistoryClicked(SearchHistoryRepository.HistoryEntry history) {
+        SearchEntry entry = findHistoryApplication(history);
+        if (entry != null) {
+            launchEntry(entry, "HISTORY");
+            return;
         }
         query.setText(history.content);
         query.setSelection(query.length());
         Log.i(QUERY_TAG, "QS_ORIGINAL_HISTORY_QUERY content=" + history.content
                 + " type=" + history.type);
+    }
+
+    private SearchEntry findHistoryApplication(SearchHistoryRepository.HistoryEntry history) {
+        if (history == null) return null;
+        SearchEntry entry = history.type == SearchHistoryRepository.TYPE_APPLICATION
+                ? findApplicationEntry(history.packageName) : null;
+        return entry != null ? entry : findApplicationEntryByLabel(history.content);
     }
 
     private void showClearHistoryConfirm() {
@@ -1070,6 +1131,8 @@ public final class OriginalQuickSearchActivity extends Activity
                                 resource("id", "text1")),
                         (TextView) convertView.findViewById(
                                 resource("id", "text2")));
+                holder.icon.setTranslationY((float) dimen(
+                        "qs_original_result_icon_visual_offset_y"));
                 convertView.setTag(holder);
             } else {
                 holder = (RowHolder) convertView.getTag();

@@ -136,7 +136,8 @@ public final class LayoutPropertyAdapter {
                         + " pageHeight=" + numericField(property, "page_height")
                         + " marginTop=" + numericField(property, "page_view_margin_top")
                         + " marginBottom=" + numericField(property, "page_view_margin_bottom")
-                        + " scaleY=" + placementScaleY + " owner=SCENE_PLACEMENT");
+                        + " dockScaleY=" + scaleY + " dockOwner=V156_FULL_HEIGHT"
+                        + " pageScaleY=" + placementScaleY + " pageOwner=SCENE_PLACEMENT");
             }
         } catch (Throwable t) {
             Log.w(TAG, "layout adaptation skipped", t);
@@ -149,12 +150,12 @@ public final class LayoutPropertyAdapter {
         if (desktopPortrait) {
             if ("name_off_set_y".equals(name) || "icon_offset_y".equals(name)
                     || "icon_offset_y_without_app_name".equals(name)) return localScale;
-            // Only fields with differing pristine height-profile values are migrated.
-            // Normal cell/page heights are derived later by Constants, not guessed here.
-            if ("dock_height".equals(name) || "cell_height_dock".equals(name)
-                    || ("_trans".equals(suffix) && ("cell_height".equals(name)
+            // Keep the Dock on the v1.5.6 full-height baseline. Scaling it by the
+            // selected profile height makes it shorter on 2280 px displays even
+            // when the navigation bar is visible.
+            if ("_trans".equals(suffix) && ("cell_height".equals(name)
                     || "page_height".equals(name) || "page_view_margin_top".equals(name)
-                    || "page_view_margin_bottom".equals(name)))) return placementScaleY;
+                    || "page_view_margin_bottom".equals(name))) return placementScaleY;
         }
         // Frozen visual subsystems retain their pre-issue-11 values. In particular,
         // changing profile metadata must not rescale raster/shadow/Folder/active icons.

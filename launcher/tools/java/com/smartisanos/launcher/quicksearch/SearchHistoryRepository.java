@@ -154,12 +154,12 @@ public final class SearchHistoryRepository {
             @Override public void run() {
                 ArrayList<HistoryEntry> entries = snapshot.persistentLoadComplete
                         ? new ArrayList<HistoryEntry>(snapshot.entries) : readPersistent();
+                HistoryEntry replacement = new HistoryEntry(content, packageName, type,
+                        System.currentTimeMillis());
                 for (int i = entries.size() - 1; i >= 0; i--) {
-                    HistoryEntry entry = entries.get(i);
-                    if (entry.type == type && content.equals(entry.content)) entries.remove(i);
+                    if (sameIdentity(replacement, entries.get(i))) entries.remove(i);
                 }
-                entries.add(0, new HistoryEntry(content, packageName, type,
-                        System.currentTimeMillis()));
+                entries.add(0, replacement);
                 while (entries.size() > MAX_VISIBLE_ENTRIES) {
                     entries.remove(entries.size() - 1);
                 }
@@ -187,10 +187,48 @@ public final class SearchHistoryRepository {
                 result.add(new HistoryEntry(content, item.optString("package", ""), type,
                         item.optLong("timestamp", 0L)));
             }
+            ArrayList<HistoryEntry> collapsed = collapseDuplicates(result);
+            if (collapsed.size() != result.size()) {
+                writePersistent(collapsed);
+                Log.i(TAG, "QS_HISTORY_DUPLICATES_REMOVED count="
+                        + (result.size() - collapsed.size()));
+            }
+            result = collapsed;
         } catch (Throwable error) {
             Log.w(TAG, "QS_HISTORY_READ_FAILED", error);
         }
         return result;
+    }
+
+    /** Migrates history written before each visible search term had one canonical record. */
+    private static ArrayList<HistoryEntry> collapseDuplicates(List<HistoryEntry> source) {
+        ArrayList<HistoryEntry> result = new ArrayList<HistoryEntry>();
+        for (HistoryEntry candidate : source) {
+            int duplicateIndex = -1;
+            for (int i = 0; i < result.size(); i++) {
+                HistoryEntry existing = result.get(i);
+                if (sameIdentity(candidate, existing)) {
+                    duplicateIndex = i;
+                    break;
+                }
+            }
+            if (duplicateIndex < 0) {
+                result.add(candidate);
+            } else if (candidate.type == TYPE_APPLICATION
+                    && result.get(duplicateIndex).type != TYPE_APPLICATION) {
+                // Keep the more useful application entry at the newest matching position.
+                result.set(duplicateIndex, candidate);
+            }
+        }
+        return result;
+    }
+
+    private static boolean sameIdentity(HistoryEntry left, HistoryEntry right) {
+        boolean samePackage = left.type == TYPE_APPLICATION
+                && right.type == TYPE_APPLICATION
+                && !TextUtils.isEmpty(left.packageName)
+                && left.packageName.equals(right.packageName);
+        return samePackage || left.content.equalsIgnoreCase(right.content);
     }
 
     private void writePersistent(List<HistoryEntry> entries) {

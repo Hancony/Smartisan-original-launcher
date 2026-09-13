@@ -22,6 +22,7 @@
     <dimen name="qs_original_top_icon_size">42.0dp</dimen>
     <dimen name="qs_original_top_icon_padding">8.0dp</dimen>
     <dimen name="qs_original_result_icon_size">30.0dp</dimen>
+    <dimen name="qs_original_result_icon_visual_offset_y">2.5dp</dimen>
     <dimen name="qs_original_suggestion_height">60.0dp</dimen>
     <dimen name="qs_original_suggestion_text1_size">16.0sp</dimen>
     <dimen name="qs_original_suggestion_text2_size">13.0sp</dimen>
@@ -33,9 +34,11 @@
     <dimen name="qs_original_history_layout_margin_top">4.799988dp</dimen>
     <dimen name="qs_original_history_child_spacing">6.0dp</dimen>
     <dimen name="qs_original_history_row_spacing">10.0dp</dimen>
-    <dimen name="qs_original_history_text_size">13.5sp</dimen>
-    <dimen name="qs_original_history_icon_size">18.0dp</dimen>
-    <dimen name="qs_original_history_icon_padding">5.0dp</dimen>
+    <dimen name="qs_original_history_text_size">13.0sp</dimen>
+    <dimen name="qs_original_history_icon_size">17.0dp</dimen>
+    <dimen name="qs_original_history_icon_padding">4.0dp</dimen>
+    <dimen name="qs_original_history_horizontal_padding_reduction">1.5dp</dimen>
+    <dimen name="qs_original_history_icon_visual_offset_y">1.0dp</dimen>
     <dimen name="qs_original_section_header_height">40.0dp</dimen>
     <dimen name="qs_original_section_header_padding_left">12.0dp</dimen>
     <dimen name="qs_original_section_header_text_size">14.0sp</dimen>

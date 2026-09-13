@@ -30,6 +30,7 @@ public final class LauncherBelowKeyguardCompat {
     // strict modern Keyguard session and exactly-once ownership below.
     private static final long V154_RESUME_PRE_ROLL_DELAY_MS = 120L;
     private static final String V154_RESUME_PRE_ROLL = "V1_5_4_RESUME_PRE_ROLL";
+    public static final String KEY_WAIT_FOR_FOCUS = "launcher_unlock_wait_for_focus";
 
     private static Context applicationContext;
     private static long keyguardSessionId;
@@ -63,6 +64,8 @@ public final class LauncherBelowKeyguardCompat {
     private static long sessionAnimationStartUptime;
     private static String sessionArmSource;
     private static long preRollScheduledSessionId;
+    // Snapshot the preference when arming so a session never changes policy midway.
+    private static boolean sessionWaitForFocus;
 
     private LauncherBelowKeyguardCompat() {
     }
@@ -231,6 +234,8 @@ public final class LauncherBelowKeyguardCompat {
                 return false;
             }
             keyguardSessionId++;
+            sessionWaitForFocus = context.getSharedPreferences("launcher_settings",
+                    Context.MODE_PRIVATE).getBoolean(KEY_WAIT_FOR_FOCUS, false);
             keyguardSessionActive = true;
             launcherWasBelowKeyguard = true;
             unlockPrepared = false;
@@ -338,6 +343,7 @@ public final class LauncherBelowKeyguardCompat {
             final boolean interactive = isInteractive(context);
             final boolean hasDirectDismissSignal = unlockDismissPending;
             final boolean v154ResumePreRoll = V154_RESUME_PRE_ROLL.equals(source)
+                    && !sessionWaitForFocus
                     && preRollScheduledSessionId == keyguardSessionId
                     && resumeDuringKeyguardHandoff;
             final long now = SystemClock.uptimeMillis();
@@ -374,6 +380,8 @@ public final class LauncherBelowKeyguardCompat {
                 logLocked(context, "UNLOCK_SKIP_KEYGUARD_STILL_LOCKED", source);
             } else if (!resumeDuringKeyguardHandoff) {
                 logLocked(context, "UNLOCK_SKIP_NO_UNLOCK_SIGNAL", source);
+            } else if (sessionWaitForFocus && !launcherHasWindowFocus) {
+                logLocked(context, "UNLOCK_SKIP_COMPAT_WAIT_FOCUS", source);
             } else if (!v154ResumePreRoll
                     && !hasDirectDismissSignal && !launcherHasWindowFocus) {
                 // A real USER_PRESENT/action_keyguard_to_dismiss belongs to the
@@ -402,7 +410,7 @@ public final class LauncherBelowKeyguardCompat {
         final long sessionId;
         synchronized (LOCK) {
             remember(context);
-            if (!keyguardSessionActive || !launcherWasBelowKeyguard || !unlockPrepared
+            if (sessionWaitForFocus || !keyguardSessionActive || !launcherWasBelowKeyguard || !unlockPrepared
                     || unlockConsumed || !launcherResumed || !resumeDuringKeyguardHandoff
                     || !isInteractive(context) || !isKeyguardLocked(context)
                     || preRollScheduledSessionId == keyguardSessionId) {
@@ -571,7 +579,8 @@ public final class LauncherBelowKeyguardCompat {
     }
 
     private static String timingSummaryLocked(boolean includeAnimationStart) {
-        return "screenOff=" + sessionScreenOffUptime
+        return "mode=" + (sessionWaitForFocus ? "WAIT_FOR_FOCUS" : "RESUME_PRE_ROLL")
+                + " screenOff=" + sessionScreenOffUptime
                 + " prepareBegin=" + sessionPrepareBeginUptime
                 + " prepareReady=" + sessionPrepareReadyUptime
                 + " userPresent=" + sessionDismissUptime
